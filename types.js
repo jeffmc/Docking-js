@@ -38,12 +38,11 @@ class Dockspace {
 
 		obj.splitter = 0; // TODO: Add splitter movement
 
-		if (vert) {
+		if (obj.vertical) {
 			alert("Vertical splitting needs to be implemented!");
 		} else {
-			b.x = a.x + a.width;
-			b.y = a.y;
-			b.height = a.height;
+			obj.setInnerSize(a.width + b.width, a.height>=b.height?a.height:b.height);
+			obj.splitter = a.width;
 		}
 
 		return obj;
@@ -73,10 +72,12 @@ class Dockspace {
 			this.frame.render(gfx);
 			return;
 		}
-		if (this.tabbed) {
+		if (this.split) {
+			this.a.render(gfx);
+			this.b.render(gfx);
 			return;
 		}
-		if (this.split) {
+		if (this.tabbed) {
 			return;
 		}
 	}
@@ -91,19 +92,43 @@ class Dockspace {
 		return (xx>=this.x)&&(yy>=this.y)&&
 			(xx<=this.x+this.width)&&(yy<=this.y+this.height);
 	}
-	setPos(xx,yy) {
-		this.x = xx;
-		this.y = yy;
-		if (this.single) this.frame.setPos(xx + DOCK_PADDING, yy + DOCK_PADDING);
-		if (this.split) alert("Implement Dockspace.setPos() for split"); // TODO: Implement
+	setPos(x,y) {
+		this.x = x;
+		this.y = y;
+		if (this.solo) this.frame.setPos(x + DOCK_PADDING, y + DOCK_PADDING);
+		if (this.split) {
+			this.updateSplitWindows();
+		}
 		if (this.tabbed) alert("Implement Dockspace.setPos() for tabbed");
 	}
-	setSize(ww,hh) {
-		this.width = ww;
-		this.height = hh;
-		if (this.solo) this.frame.setSize(ww - DOCK_PADDING * 2, hh - DOCK_PADDING * 2);
-		if (this.split) alert("Implement Dockspace.setSize() for split"); // TODO: Implement
+	setInnerSize(ww,hh) {
+		this.width = ww + DOCK_PADDING * 2;
+		this.height = hh + DOCK_PADDING * 2;
+		if (this.solo) this.frame.setSize(ww, hh);
+		if (this.split) {
+			if (this.vert) {
+				alert("Vertical split Dockspace.setPos() needs to be implemented!");
+			} else {
+				this.updateSplitWindows();
+			}
+		}
 		if (this.tabbed) alert("Implement Dockspace.setSize() for tabbed");
+	}
+	updateSplitWindows() {
+		let xx = this.x+DOCK_PADDING, yy = this.y + DOCK_PADDING; // inner position
+		let ww = this.width - DOCK_PADDING * 2, hh = this.height - DOCK_PADDING * 2; // inner dimensions
+
+		this.a.height = hh;
+		this.b.height = hh;
+		let hw = ww / 2; // half width
+		this.a.width = hw;
+		this.b.width = hw;
+
+		this.a.x = xx;
+		this.b.x = xx + hw;
+
+		this.a.y = yy;
+		this.b.y = yy;
 	}
 }
 

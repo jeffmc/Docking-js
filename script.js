@@ -10,7 +10,7 @@ ctx.lineWidth = 1;
 ctx.translate(0.5, 0.5);
 
 // Frame stack
-let wins = [
+let frs = [
   new Frame(10, 10, 160, 160),
   new Frame(70, 25, 180, 120),
   new Frame(100, 150, 200, 160),
@@ -19,8 +19,8 @@ let wins = [
 // Dock stack
 let docks = [];
 let activeDock = null;
-for (win of wins) {
-  docks.push(win.dock);
+for (fr of frs) {
+  docks.push(fr.dock);
 }
 
 // Merge last two
@@ -47,7 +47,7 @@ let dragEnd = false;
 let dockHandler = null; 
 
 // Init
-activateDock(wins[1].dock);
+activateDock(docks[0]);
 
 // Loop
 function draw() {
@@ -84,9 +84,7 @@ function findDockAt(xx, yy) {
 
 function activateDockAt(xx, yy) {
   let dock = findDockAt(xx, yy);
-  if (dock != null) {
-    activateDock(dock);
-  }
+  activateDock(dock);
   return dock; // Found or null
 }
 
@@ -95,11 +93,14 @@ function activateDock(newDock) {
     dock.active = false;
   }
   let idx = docks.indexOf(newDock);
-  if (idx < 0) console.log("ERROR: COULDN'T FIND DOCK IN activateDock()");
-  docks.splice(idx, 1);
-  newDock.active = true;
-  activeDock = newDock;
-  docks.unshift(newDock);
+  if (idx < 0) {
+    console.log("ERROR: COULDN'T FIND DOCK IN activateDock()");
+  } else {
+    docks.splice(idx, 1);
+    newDock.active = true;
+    activeDock = newDock;
+    docks.unshift(newDock);
+  }
 }
 
 // Event handling
