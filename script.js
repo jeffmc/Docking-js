@@ -11,9 +11,9 @@ ctx.translate(0.5, 0.5);
 
 // Window stack
 let wins = [
-  new Window(10, 10, 80, 80),
-  new Window(70, 25, 90, 60),
-  new Window(100, 150, 100, 80),
+  new Window(10, 10, 160, 160),
+  new Window(70, 25, 180, 120),
+  new Window(100, 150, 200, 160),
 ];
 
 // Dock stack
@@ -32,10 +32,13 @@ let mousePressed = false;
 let dragging = false;
 
 // single-frame
+let mouseDown = false;
+let mouseUp = false;
 let clicked = false;
 let dragStart = false;
 let dragEnd = false;
-let mouseDown = false;
+
+let dockHandler = null; 
 
 // Init
 activateDock(wins[1].dock);
@@ -44,11 +47,21 @@ activateDock(wins[1].dock);
 function draw() {
   stats.begin();
 
+  // Event handling
   handleEvents();
 
+  // Draw background
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,700,700); // TODO: Find canvas values systematically.
+
+  // Draw docks
   for (let i = docks.length - 1; i >= 0; i--) {
     docks[i].render(ctx);
   }
+
+  // Mouse location
+  ctx.strokeStyle = "#FFF";
+  ctx.strokeRect(mx-2,my-2,4,4);
 
   stats.end();
   requestAnimationFrame(draw);
@@ -68,6 +81,7 @@ function activateDockAt(xx, yy) {
   if (dock != null) {
     activateDock(dock);
   }
+  return dock; // Found or null
 }
 
 function activateDock(newDock) {
@@ -85,43 +99,35 @@ function activateDock(newDock) {
 // Event handling
 function handleEvents() {
   if (mouseDown) {
-    handleMouseDown();
+    let dock = activateDockAt(mx,my);
+    if (dock) {
+      dockHandler = new DockHandler(mx,my,dock,docks);
+      dockHandler.handleMouseDown(mx, my);
+    }
+
     mouseDown = false;
   }
-  if (clicked) {
-    handleClick();
-    clicked = false;
+  if (mouseUp) {
+    if (dockHandler) dockHandler.handleMouseUp(mx,my);
+    dockHandler = null;
+
+    mouseUp = false;
   }
-  if (dragStart) {
-    handleDragStart();
-    dragStart = false;
+  if (dockHandler) {
+    if (clicked) {
+      dockHandler.handleClick(mx, my);
+      clicked = false;
+    }
+    if (dragStart) {
+      dockHandler.handleDragStart(mx, my);
+      dragStart = false;
+    }
+    if (dragging) dockHandler.handleDragging(mx, my);
+    if (dragEnd) {
+      dockHandler.handleDragEnd(mx, my);
+      dragEnd = false;
+    }
   }
-  if (dragging) handleDragging();
-  if (dragEnd) {
-    handleDragEnd();
-    dragEnd = false;
-  }
-}
-
-function handleClick() {
-  // console.log("click");
-}
-
-function handleDragStart() {
-  // console.log("dragStart");
-}
-
-function handleDragging() {
-  // console.log("dragging");
-}
-
-function handleDragEnd() {
-  // console.log("dragEnd");
-}
-
-function handleMouseDown() {
-  // console.log(`mouseDown: ${mx}, ${my}`);
-  activateDockAt(mx, my);
 }
 
 // Mouse Polling
@@ -142,6 +148,7 @@ canvas.addEventListener("mousedown", (e) => {
 canvas.addEventListener("mouseup", (e) => {
   if (e.button == 0) {
     mousePressed = false;
+    mouseUp = true;
     if (dragging) {
       dragEnd = true;
     } else {
