@@ -9,11 +9,11 @@ let ctx = canvas.getContext('2d');
 ctx.lineWidth = 1;
 ctx.translate(0.5, 0.5);
 
-// Window stack
+// Frame stack
 let wins = [
-  new Window(10, 10, 160, 160),
-  new Window(70, 25, 180, 120),
-  new Window(100, 150, 200, 160),
+  new Frame(10, 10, 160, 160),
+  new Frame(70, 25, 180, 120),
+  new Frame(100, 150, 200, 160),
 ];
 
 // Dock stack
@@ -21,6 +21,12 @@ let docks = [];
 let activeDock = null;
 for (win of wins) {
   docks.push(win.dock);
+}
+
+// Merge last two
+{
+  let a = docks.pop().frame, b = docks.pop().frame;
+  docks.push(Dockspace.split(a,b));
 }
 
 // Mouse Data
