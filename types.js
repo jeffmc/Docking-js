@@ -1,4 +1,5 @@
-const DOCK_PADDING = 5;
+const DOCK_PADDING = 2;
+const DOCK_TITLE_HEIGHT = 14;
 
 const DROPPOINT_RADIUS = 20;
 const DROPPOINT_THICKNESS = 15;
@@ -13,6 +14,7 @@ class Dockspace {
     this.active = false;
     this.hovered = false;
     this.doRenderElements = true;
+	this.doDrawTitle = true;
 
     this.solo = false;
     this.split = false;
@@ -21,9 +23,11 @@ class Dockspace {
   // solo frame
   static solo(fr) {
     if (!fr instanceof Frame) alert("ERROR: fr arg not Frame instance!");
-    let obj = new Dockspace(fr.x, fr.y, fr.width, fr.height);
+    let obj = new Dockspace(0,0,0,0);
     obj.frame = fr;
     obj.solo = true;
+	obj.setInnerSize(fr.width, fr.height);
+	obj.setPos(fr.x, fr.y);
     return obj;
   }
 
@@ -99,7 +103,7 @@ class Dockspace {
     gfx.strokeStyle = this.active ? "#4444dd" : "#111188";
     gfx.strokeRect(this.x, this.y, this.width, this.height);
   }
-  renderDroppoints(gfx) {
+  renderDroppoints(gfx) { // Add a droppoint class
     if (this.solo) this.frame.renderDroppoint(gfx);
     if (this.split) {
       this.a.renderDroppoint(gfx);
@@ -123,7 +127,7 @@ class Dockspace {
   setPos(x, y) {
     this.x = x;
     this.y = y;
-    if (this.solo) this.frame.setPos(x + DOCK_PADDING, y + DOCK_PADDING);
+    if (this.solo) this.frame.setPos(x + DOCK_PADDING, y + DOCK_PADDING + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
     if (this.split) {
       this.updateSplitWindows();
     }
@@ -131,7 +135,7 @@ class Dockspace {
   }
   setInnerSize(ww, hh) {
     this.width = ww + DOCK_PADDING * 2;
-    this.height = hh + DOCK_PADDING * 2;
+    this.height = hh + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0) + DOCK_PADDING * 2;
     if (this.solo) this.frame.setSize(ww, hh);
     if (this.split) {
       this.updateSplitWindows();
@@ -143,9 +147,9 @@ class Dockspace {
       alert("Vertical split Dockspace.setPos() needs to be implemented!");
     } else {
       let xx = this.x + DOCK_PADDING,
-        yy = this.y + DOCK_PADDING; // inner position
+        yy = this.y + DOCK_PADDING + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // inner position
       let ww = this.width - DOCK_PADDING * 2,
-        hh = this.height - DOCK_PADDING * 2; // inner dimensions
+        hh = this.height - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // inner dimensions
 
       this.a.height = hh;
       this.b.height = hh;
