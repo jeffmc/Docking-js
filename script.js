@@ -56,16 +56,36 @@ function draw() {
   // Event handling
   handleEvents();
 
+  // Determine hovered
+  let nothingHovered = true;
+  for (let i=0;i<docks.length;i++) {
+    docks[i].hovered = false;
+    if (nothingHovered&&docks[i].contains(mx,my)) {
+      nothingHovered = false;
+      docks[i].hovered = true;
+    }
+  }
+
   // Draw background
   ctx.fillStyle = "#000";
   ctx.fillRect(0,0,700,700); // TODO: Find canvas values systematically.
 
-  // Draw docks
-  for (let i = docks.length - 1; i >= 0; i--) {
+  // Draw docks (except for active)
+  for (let i = docks.length - 1; i > 0; i--) {
     docks[i].render(ctx);
   }
 
-  // Mouse location
+  // Draw active dock
+  docks[0].render(ctx);
+
+  // Draw droppoints (except for active)
+  if (dockHandler) {
+    for (let i = docks.length - 1; i > 0; i--) {
+      docks[i].renderDroppoints(ctx);
+    }
+  }
+  
+  // Paint mouse location
   ctx.strokeStyle = "#FFF";
   ctx.strokeRect(mx-2,my-2,4,4);
 
