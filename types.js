@@ -17,17 +17,22 @@ class Dockspace {
 	this.doDrawTitle = true;
 
     this.solo = false;
+    this.isHalf = false; // child of a split
+
     this.split = false;
+    
     this.tabbed = false;
   }
   // solo frame
-  static solo(fr) {
+  static solo(fr, ih = false) {
     if (!fr instanceof Frame) alert("ERROR: fr arg not Frame instance!");
     let obj = new Dockspace(0,0,0,0);
     obj.frame = fr;
     obj.solo = true;
-	obj.setInnerSize(fr.width, fr.height);
-	obj.setPos(fr.x, fr.y);
+    obj.isHalf = ih;
+
+    obj.setInnerSize(fr.width, fr.height);
+    obj.setPos(fr.x, fr.y);
     return obj;
   }
 
@@ -42,8 +47,9 @@ class Dockspace {
       obj.vertical = false;
     }
     obj.split = true;
-    obj.a = a; // left/top
-    obj.b = b; // right/bottom
+    obj.doDrawTitle = false;
+    obj.a = Dockspace.solo(a, true); // left/top
+    obj.b = Dockspace.solo(b, true); // right/bottom
 
     obj.splitter = 0; // TODO: Add splitter movement
 
@@ -106,8 +112,8 @@ class Dockspace {
   renderDroppoints(gfx) { // Add a droppoint class
     if (this.solo) this.frame.renderDroppoint(gfx);
     if (this.split) {
-      this.a.renderDroppoint(gfx);
-      this.b.renderDroppoint(gfx);
+      this.a.renderDroppoints(gfx);
+      this.b.renderDroppoints(gfx);
     }
     if (this.tabbed) {
       // TODO: Do this better, don't render all frames droppoints.
@@ -133,14 +139,25 @@ class Dockspace {
     }
     if (this.tabbed) alert("Implement Dockspace.setPos() for tabbed");
   }
-  setInnerSize(ww, hh) {
-    this.width = ww + DOCK_PADDING * 2;
-    this.height = hh + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0) + DOCK_PADDING * 2;
-    if (this.solo) this.frame.setSize(ww, hh);
+  setSize(ww,hh) {
+    if (this.solo) {
+      this.frame.setSize(
+        ww - DOCK_PADDING * 2, 
+        hh - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
+      return;
+    }
     if (this.split) {
       this.updateSplitWindows();
+      return;
     }
-    if (this.tabbed) alert("Implement Dockspace.setSize() for tabbed");
+    if (this.tabbed) {
+      alert("Implement Dockspace.setSize() for tabbed");
+      return;
+    }
+  }
+  setInnerSize(ww, hh) {
+    this.setSize(ww + DOCK_PADDING * 2,
+      hh + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0) + DOCK_PADDING * 2);
   }
   updateSplitWindows() {
     if (this.vert) {
@@ -151,17 +168,12 @@ class Dockspace {
       let ww = this.width - DOCK_PADDING * 2,
         hh = this.height - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // inner dimensions
 
-      this.a.height = hh;
-      this.b.height = hh;
       let hw = ww / 2; // half width
-      this.a.width = hw;
-      this.b.width = hw;
+      this.a.setSize(hw,hh);
+      this.b.setSize(hw,hh);
 
-      this.a.x = xx;
-      this.b.x = xx + hw;
-
-      this.a.y = yy;
-      this.b.y = yy;
+      this.a.setPos(xx,yy);
+      this.b.setPos(xx+hw,yy);
     }
   }
 }
