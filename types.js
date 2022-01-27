@@ -6,15 +6,19 @@ const DROPPOINT_THICKNESS = 15;
 const DROPPOINT_MARGIN = 10;
 
 class Dockspace {
-  constructor(xx, yy, w, h) {
+  constructor(xx, yy, w, h, p = null) {
     this.x = xx - DOCK_PADDING;
     this.y = yy - DOCK_PADDING;
     this.width = w + DOCK_PADDING * 2;
     this.height = h + DOCK_PADDING * 2;
+    
+    this.parent = p; // null if root dock.
+    
     this.active = false;
     this.hovered = false;
+
     this.doRenderElements = true;
-	this.doDrawTitle = true;
+	  this.doDrawTitle = true;
 
     this.solo = false;
     this.isHalf = false; // child of a split
@@ -24,12 +28,14 @@ class Dockspace {
     this.tabbed = false;
   }
   // solo frame
-  static solo(fr, ih = false) {
+  static solo(fr, ih = false, p = null) {
     if (!fr instanceof Frame) alert("ERROR: fr arg not Frame instance!");
-    let obj = new Dockspace(0,0,0,0);
+    let obj = new Dockspace(0,0,0,0, null);
     obj.frame = fr;
     obj.solo = true;
+    
     obj.isHalf = ih;
+    obj.parent = p;
 
     obj.setInnerSize(fr.width, fr.height);
     obj.setPos(fr.x, fr.y);
@@ -48,8 +54,9 @@ class Dockspace {
     }
     obj.split = true;
     obj.doDrawTitle = false;
-    obj.a = Dockspace.solo(a, true); // left/top
-    obj.b = Dockspace.solo(b, true); // right/bottom
+    obj.doRenderElements = false;
+    obj.a = Dockspace.solo(a, true, obj); // left/top
+    obj.b = Dockspace.solo(b, true, obj); // right/bottom
 
     obj.splitter = 0; // TODO: Add splitter movement
 
@@ -122,6 +129,56 @@ class Dockspace {
       }
     }
   }
+  findLeafDockAt(xx,yy) {
+    if (this.contains(xx,yy)) {
+      if (this.solo) return this;
+      if (this.split) {
+        if (this.a.contains(xx,yy)) {
+          return this.a.findLeafDockAt(xx,yy);
+        } else if (this.b.contains(xx,yy)) {
+          return this.b.findLeafDockAt(xx,yy);
+        }
+      }
+      if (this.tabbed) {
+        alert("Add findLeafDockAt() for tabbed docks!"); // TODO: findLeafDockAt() for tabbed.
+        return this;
+      }
+    }
+  }
+
+  activateAt(xx,yy) {
+    if (this.contains(xx,yy)) {
+      this.intl_activate();
+      if (this.split) {
+        if (this.a.contains(xx,yy)) {
+          this.a.activateAt(xx,yy);
+        } else if (this.b.contains(xx,yy)) {
+          this.b.activateAt(xx,yy);
+        }
+      }
+      if (this.tabbed) {
+        alert("Add this funcitonality for tabbed dock activation!"); // TODO: Activation code for tabbed docks.
+      }
+    }
+  }
+  intl_activate() {
+    this.active = true;
+    if (this.solo) this.frame.intl_activate();
+  }
+  deactivate() {
+    this.active = false;
+    if (this.solo) this.frame.deactivate();
+    if (this.split) {
+      this.a.deactivate();
+      this.b.deactivate();
+    }
+    if (this.tabbed) {
+      for (fr of this.frames) {
+        fr.deactivate();
+      }
+    }
+  }
+
   contains(xx, yy) {
     return (
       xx >= this.x &&
@@ -141,9 +198,9 @@ class Dockspace {
   }
   setSize(ww,hh) {
     if (this.solo) {
-      this.frame.setSize(
-        ww - DOCK_PADDING * 2, 
-        hh - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
+      this.width = ww; 
+      this.height = hh;
+      this.frame.setSize(ww - DOCK_PADDING * 2, hh - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
       return;
     }
     if (this.split) {
@@ -244,5 +301,11 @@ class Frame {
   setSize(ww, hh) {
     this.width = ww;
     this.height = hh;
+  }
+  intl_activate() {
+    this.active = true;
+  }
+  deactivate() {
+    this.active = false;
   }
 }

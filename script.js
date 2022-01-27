@@ -14,19 +14,23 @@ let frs = [
   new Frame(10, 10, 160, 160),
   new Frame(70, 25, 180, 120),
   new Frame(100, 150, 200, 160),
+  new Frame(120, 220, 240, 120),
+  new Frame(160, 350, 280, 140),
 ];
 
 // Dock stack
-let docks = [];
-let activeDock = null;
+let rootDocks = [];
+let activeRootDock = null;
+let activeLeafDock = null;
+
 for (fr of frs) {
-  docks.push(fr.dock);
+  rootDocks.push(fr.dock);
 }
 
 // Merge last two
 {
-  let a = docks.pop().frame, b = docks.pop().frame;
-  docks.push(Dockspace.split(a,b));
+  let a = rootDocks.pop().frame, b = rootDocks.pop().frame;
+  rootDocks.push(Dockspace.split(a,b));
 }
 
 // Mouse Data
@@ -47,7 +51,7 @@ let dragEnd = false;
 let dockHandler = null; 
 
 // Init
-activateDock(docks[0]);
+activateDock(rootDocks[0]);
 
 // Loop
 function draw() {
@@ -58,11 +62,11 @@ function draw() {
 
   // Determine hovered
   let nothingHovered = true;
-  for (let i=0;i<docks.length;i++) {
-    docks[i].hovered = false;
-    if (nothingHovered&&docks[i].contains(mx,my)) {
+  for (let i=0;i<rootDocks.length;i++) {
+    rootDocks[i].hovered = false;
+    if (nothingHovered&&rootDocks[i].contains(mx,my)) {
       nothingHovered = false;
-      docks[i].hovered = true;
+      rootDocks[i].hovered = true;
     }
   }
 
@@ -70,18 +74,18 @@ function draw() {
   ctx.fillStyle = "#000";
   ctx.fillRect(0,0,700,700); // TODO: Find canvas values systematically.
 
-  // Draw docks (except for active)
-  for (let i = docks.length - 1; i > 0; i--) {
-    docks[i].render(ctx);
+  // Draw rootDocks (except for active)
+  for (let i = rootDocks.length - 1; i > 0; i--) {
+    rootDocks[i].render(ctx);
   }
 
   // Draw active dock
-  docks[0].render(ctx);
+  rootDocks[0].render(ctx);
 
   // Draw droppoints (except for active)
   if (dockHandler) {
-    for (let i = docks.length - 1; i > 0; i--) {
-      docks[i].renderDroppoints(ctx);
+    for (let i = rootDocks.length - 1; i > 0; i--) {
+      rootDocks[i].renderDroppoints(ctx);
     }
   }
   
@@ -94,32 +98,41 @@ function draw() {
 }
 
 // Docking functions
-function findDockAt(xx, yy) {
-  for (let i = 0; i < docks.length; i++) {
-    if (docks[i].contains(xx, yy))
-      return docks[i];
+function findRootDockAt(xx, yy) {
+  for (let i = 0; i < rootDocks.length; i++) {
+    if (rootDocks[i].contains(xx, yy))
+      return rootDocks[i];
   }
   return null;
 }
 
-function activateDockAt(xx, yy) {
-  let dock = findDockAt(xx, yy);
-  activateDock(dock);
-  return dock; // Found or null
+function findLeafDockAt(xx, yy) {
+  for (let i = 0; i < rootDocks.length; i++) {
+    if (rootDocks[i].contains(xx, yy))
+      return rootDocks[i].findLeafDockAt(xx,yy);
+  }
+  return null;
+}
+
+function activateDockAt(xx, yy) { // find root dock
+  let rDock = findRootDockAt(xx,yy);
+  let lDock = findLeafDockAt(xx,yy);
+  activateDock(rDock, lDock);
+  return rDock; // Found or null
 }
 
 function activateDock(newDock) {
-  for (dock of docks) { // TODO: only deactivate last dock.
-    dock.active = false;
+  for (dock of rootDocks) { // TODO: only deactivate last dock.
+    dock.deactivate();
   }
-  let idx = docks.indexOf(newDock);
+  let idx = rootDocks.indexOf(newDock);
   if (idx < 0) {
     console.log("ERROR: COULDN'T FIND DOCK IN activateDock()");
   } else {
-    docks.splice(idx, 1);
+    rootDocks.splice(idx, 1);
     newDock.active = true;
-    activeDock = newDock;
-    docks.unshift(newDock);
+    activeRootDock = newDock;
+    rootDocks.unshift(newDock);
   }
 }
 
@@ -128,7 +141,7 @@ function handleEvents() {
   if (mouseDown) {
     let dock = activateDockAt(mx,my);
     if (dock) {
-      dockHandler = new DockHandler(mx,my,dock,docks);
+      dockHandler = new DockHandler(mx,my,dock,rootDocks);
       dockHandler.handleMouseDown(mx, my);
     }
 
