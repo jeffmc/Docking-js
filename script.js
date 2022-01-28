@@ -5,33 +5,26 @@ document.body.appendChild(stats.dom);
 
 // Canvas Setup
 let canvas = document.querySelector("canvas");
-let ctx = canvas.getContext('2d');
+let ctx = canvas.getContext("2d");
 ctx.lineWidth = 1;
 ctx.translate(0.5, 0.5);
 
-// Frame stack
-let frs = [
-  new Frame(10, 10, 160, 160),
-  new Frame(70, 25, 180, 120),
-  new Frame(100, 150, 200, 160),
-  new Frame(120, 220, 240, 120),
-  new Frame(160, 350, 280, 140),
-];
-
 // Dock stack
-let rootDocks = [];
+let rootDock = Dockspace.root(0, 0, canvas.width, canvas.height);
 let activeRootDock = null;
 let activeLeafDock = null;
 
-for (fr of frs) {
-  rootDocks.push(fr.dock);
+// Add example docks
+let frs = [ new Frame(10, 10, 160, 160), new Frame(70, 25, 180, 120), new Frame(100, 150, 200, 160) ];
+for (fr of frs) { // example solos
+  rootDock.addChild(Dockspace.solo(fr));
 }
-
-// Merge last two
-{
-  let a = rootDocks.pop().frame, b = rootDocks.pop().frame;
-  rootDocks.push(Dockspace.split(a,b));
-}
+rootDock.addChild( // example split
+  Dockspace.split(
+    new Frame(120, 220, 240, 120),
+    new Frame(160, 350, 280, 140)
+  )
+);
 
 // Mouse Data
 let mx = 0;
@@ -48,10 +41,10 @@ let clicked = false;
 let dragStart = false;
 let dragEnd = false;
 
-let dockHandler = null; 
+let dockHandler = null;
 
 // Init
-activateDock(rootDocks[0]);
+// activateDock(rootDocks[0]);
 
 // Loop
 function draw() {
@@ -61,37 +54,31 @@ function draw() {
   handleEvents();
 
   // Determine hovered
-  let nothingHovered = true;
-  for (let i=0;i<rootDocks.length;i++) {
-    rootDocks[i].hovered = false;
-    if (nothingHovered&&rootDocks[i].contains(mx,my)) {
-      nothingHovered = false;
-      rootDocks[i].hovered = true;
-    }
-  }
+  let hoverPath = rootDock.hoverAt(mx,my);
 
   // Draw background
   ctx.fillStyle = "#000";
-  ctx.fillRect(0,0,700,700); // TODO: Find canvas values systematically.
+  ctx.fillRect(0, 0, 700, 700); // TODO: Find canvas values systematically.
 
   // Draw rootDocks (except for active)
-  for (let i = rootDocks.length - 1; i > 0; i--) {
-    rootDocks[i].render(ctx);
-  }
+  // for (let i = rootDocks.length - 1; i > 0; i--) {
+  //   rootDocks[i].render(ctx);
+  // }
+  rootDock.render(ctx);
 
   // Draw active dock
-  rootDocks[0].render(ctx);
+  // rootDocks[0].render(ctx);
 
   // Draw droppoints (except for active)
   if (dockHandler) {
-    for (let i = rootDocks.length - 1; i > 0; i--) {
-      rootDocks[i].renderDroppoints(ctx);
-    }
+    // for (let i = rootDocks.length - 1; i > 0; i--) {
+    rootDock.renderDroppoints(ctx);
+    // }
   }
-  
+
   // Paint mouse location
   ctx.strokeStyle = "#FFF";
-  ctx.strokeRect(mx-2,my-2,4,4);
+  ctx.strokeRect(mx - 2, my - 2, 4, 4);
 
   stats.end();
   requestAnimationFrame(draw);
@@ -100,8 +87,7 @@ function draw() {
 // Docking functions
 function findRootDockAt(xx, yy) {
   for (let i = 0; i < rootDocks.length; i++) {
-    if (rootDocks[i].contains(xx, yy))
-      return rootDocks[i];
+    if (rootDocks[i].contains(xx, yy)) return rootDocks[i];
   }
   return null;
 }
@@ -109,20 +95,22 @@ function findRootDockAt(xx, yy) {
 function findLeafDockAt(xx, yy) {
   for (let i = 0; i < rootDocks.length; i++) {
     if (rootDocks[i].contains(xx, yy))
-      return rootDocks[i].findLeafDockAt(xx,yy);
+      return rootDocks[i].findLeafDockAt(xx, yy);
   }
   return null;
 }
 
-function activateDockAt(xx, yy) { // find root dock
-  let rDock = findRootDockAt(xx,yy);
-  let lDock = findLeafDockAt(xx,yy);
+function activateDockAt(xx, yy) {
+  // find root dock
+  let rDock = findRootDockAt(xx, yy);
+  let lDock = findLeafDockAt(xx, yy);
   activateDock(rDock, lDock);
   return rDock; // Found or null
 }
 
 function activateDock(newDock) {
-  for (dock of rootDocks) { // TODO: only deactivate last dock.
+  for (dock of rootDocks) {
+    // TODO: only deactivate last dock.
     dock.deactivate();
   }
   let idx = rootDocks.indexOf(newDock);
@@ -139,16 +127,16 @@ function activateDock(newDock) {
 // Event handling
 function handleEvents() {
   if (mouseDown) {
-    let dock = activateDockAt(mx,my);
+    let dock = activateDockAt(mx, my);
     if (dock) {
-      dockHandler = new DockHandler(mx,my,dock,rootDocks);
+      dockHandler = new DockHandler(mx, my, dock, rootDocks);
       dockHandler.handleMouseDown(mx, my);
     }
 
     mouseDown = false;
   }
   if (mouseUp) {
-    if (dockHandler) dockHandler.handleMouseUp(mx,my);
+    if (dockHandler) dockHandler.handleMouseUp(mx, my);
     dockHandler = null;
 
     mouseUp = false;
@@ -178,13 +166,13 @@ canvas.addEventListener("mousemove", (e) => {
     if (!dragging) dragStart = true;
     dragging = true;
   }
-})
+});
 canvas.addEventListener("mousedown", (e) => {
   if (e.button == 0) {
     mousePressed = true;
     mouseDown = true;
   }
-})
+});
 canvas.addEventListener("mouseup", (e) => {
   if (e.button == 0) {
     mousePressed = false;

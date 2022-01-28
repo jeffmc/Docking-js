@@ -5,15 +5,15 @@ const DROPPOINT_RADIUS = 20;
 const DROPPOINT_THICKNESS = 15;
 const DROPPOINT_MARGIN = 10;
 
-class Dockspace {
-  constructor(xx, yy, w, h, p = null) {
+class Dockspace { // A node in a dock tree.
+  constructor(xx, yy, w, h) { // r should only be true when making root dockspace.
     this.x = xx - DOCK_PADDING;
     this.y = yy - DOCK_PADDING;
     this.width = w + DOCK_PADDING * 2;
     this.height = h + DOCK_PADDING * 2;
     
-    this.parent = p; // null if root dock.
-    
+    this.parent = null; // null if root dock.
+
     this.active = false;
     this.hovered = false;
 
@@ -27,10 +27,24 @@ class Dockspace {
     
     this.tabbed = false;
   }
-  // solo frame
+
+  // Root dockspace, contains floating docks of any kind.
+  static root(x,y,w,h) {
+    let obj = new Dockspace(0,0,0,0, null);
+    obj.doRenderElements = false;
+    obj.doDrawTitle = false;
+    obj.isRoot = true;
+    obj.children = [];
+
+    obj.setSize(w,h);
+    obj.setPos(x,y);
+    return obj;
+  }
+
+  // Solo dockspace, contains single frame
   static solo(fr, ih = false, p = null) {
     if (!fr instanceof Frame) alert("ERROR: fr arg not Frame instance!");
-    let obj = new Dockspace(0,0,0,0, null);
+    let obj = new Dockspace(0,0,0,0, p);
     obj.frame = fr;
     obj.solo = true;
     
@@ -42,7 +56,7 @@ class Dockspace {
     return obj;
   }
 
-  // split frames
+  // Split dock, contains two subdocks of any kind. (horizontal or vertical mode)
   static split(a, b, vert) {
     if (!a instanceof Frame) alert("ERROR: arg a not Frame instance!");
     if (!b instanceof Frame) alert("ERROR: arg b not Frame instance!");
@@ -73,7 +87,7 @@ class Dockspace {
     return obj;
   }
 
-  // tabbed frames
+  // Tabbed dock, contains n>0 subdocks of any kind. TODO: Decide whether tabbed docks can contain tabbed docks.
   static tabbed(...frs) {
     for (fr in frs) {
       if (fr instanceof Frame) alert("ERROR: fr element not Frame instance!");
@@ -92,6 +106,13 @@ class Dockspace {
   }
   render(gfx) {
     if (this.doRenderElements) this.renderElements(gfx);
+    if (this.isRoot) {
+      // gfx.fillStyle = "#aa2222";
+      // gfx.fillRect(this.x,this.y,this.width,this.height);
+      for (const child of this.children) 
+        child.render(gfx);
+      return;
+    }
     if (this.solo) {
       this.frame.render(gfx);
       return;
@@ -197,9 +218,9 @@ class Dockspace {
     if (this.tabbed) alert("Implement Dockspace.setPos() for tabbed");
   }
   setSize(ww,hh) {
+    this.width = ww;
+    this.height = hh;
     if (this.solo) {
-      this.width = ww; 
-      this.height = hh;
       this.frame.setSize(ww - DOCK_PADDING * 2, hh - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
       return;
     }
@@ -233,6 +254,36 @@ class Dockspace {
       this.b.setPos(xx+hw,yy);
     }
   }
+  addChild(subdock) {
+    if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
+    if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
+    this.children.push(subdock);
+  }
+  hoverAt(xx,yy) {
+    let path = [];
+    this.intl_hoverAt(xx,yy,path);
+    return path;
+  }
+  intl_hoverAt(xx,yy,cpath) {
+    if (this.contains(xx,yy)) {
+      cpath.push(this);
+      if (this.isRoot) {
+        for (const child of this.children) { // iterate through children front-to-back til found a hovered, whilst calling their hoverAt().
+          if (child.intl_hoverAt(xx,yy,cpath)) break;
+        }
+      }
+      if (this.split) {
+        if (!this.a.intl_hoverAt(xx,yy,cpath)) // Check if A is hovered
+          this.b.intl_hoverAt(xx,yy,cpath); // If A not hovered, check if B is hovered.
+      }
+      if (this.tabbed) {
+        alert("IMplement intl_hoverAt for tabbed");
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
 }
 
 class Frame {
@@ -241,7 +292,7 @@ class Frame {
     this.y = y;
     this.width = w;
     this.height = h;
-    this.dock = Dockspace.solo(this); // define dockspace using this frame's dimensions.
+    this.dock = null;
     this.active = false;
   }
   render(gfx) {
