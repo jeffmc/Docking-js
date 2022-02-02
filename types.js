@@ -109,8 +109,8 @@ class Dockspace { // A node in a dock tree.
     if (this.isRoot) {
       // gfx.fillStyle = "#aa2222";
       // gfx.fillRect(this.x,this.y,this.width,this.height);
-      for (const child of this.children) 
-        child.render(gfx);
+      for (let i=this.children.length-1;i>=0;i--) 
+        this.children[i].render(gfx);
       return;
     }
     if (this.solo) {
@@ -136,6 +136,12 @@ class Dockspace { // A node in a dock tree.
 
     gfx.strokeStyle = this.active ? "#4444dd" : "#111188";
     gfx.strokeRect(this.x, this.y, this.width, this.height);
+
+    if (this.doDrawTitle) {
+      gfx.fillStyle = "#fff";
+      gfx.fillText(this.solo?this.frame.title:"EX_TITLE",this.x,this.y+DOCK_TITLE_HEIGHT);
+    }
+
   }
   renderDroppoints(gfx) { // Add a droppoint class
     if (this.solo) this.frame.renderDroppoint(gfx);
@@ -150,23 +156,6 @@ class Dockspace { // A node in a dock tree.
       }
     }
   }
-  findLeafDockAt(xx,yy) {
-    if (this.contains(xx,yy)) {
-      if (this.solo) return this;
-      if (this.split) {
-        if (this.a.contains(xx,yy)) {
-          return this.a.findLeafDockAt(xx,yy);
-        } else if (this.b.contains(xx,yy)) {
-          return this.b.findLeafDockAt(xx,yy);
-        }
-      }
-      if (this.tabbed) {
-        alert("Add findLeafDockAt() for tabbed docks!"); // TODO: findLeafDockAt() for tabbed.
-        return this;
-      }
-    }
-  }
-
   activateAt(xx,yy) {
     if (this.contains(xx,yy)) {
       this.intl_activate();
@@ -180,6 +169,8 @@ class Dockspace { // A node in a dock tree.
       if (this.tabbed) {
         alert("Add this funcitonality for tabbed dock activation!"); // TODO: Activation code for tabbed docks.
       }
+    } else {
+      this.deactivate();
     }
   }
   intl_activate() {
@@ -259,25 +250,25 @@ class Dockspace { // A node in a dock tree.
     if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
     this.children.push(subdock);
   }
-  hoverAt(xx,yy) {
+  dockPathAt(xx,yy) {
     let path = [];
-    this.intl_hoverAt(xx,yy,path);
+    this.intl_dockPathAt(xx,yy,path);
     return path;
   }
-  intl_hoverAt(xx,yy,cpath) {
+  intl_dockPathAt(xx,yy,cpath) {
     if (this.contains(xx,yy)) {
       cpath.push(this);
       if (this.isRoot) {
-        for (const child of this.children) { // iterate through children front-to-back til found a hovered, whilst calling their hoverAt().
-          if (child.intl_hoverAt(xx,yy,cpath)) break;
+        for (const child of this.children) { // iterate through children front-to-back til found a hovered, whilst calling their dockPathAt().
+          if (child.intl_dockPathAt(xx,yy,cpath)) break;
         }
       }
       if (this.split) {
-        if (!this.a.intl_hoverAt(xx,yy,cpath)) // Check if A is hovered
-          this.b.intl_hoverAt(xx,yy,cpath); // If A not hovered, check if B is hovered.
+        if (!this.a.intl_dockPathAt(xx,yy,cpath)) // Check if A is hovered
+          this.b.intl_dockPathAt(xx,yy,cpath); // If A not hovered, check if B is hovered.
       }
       if (this.tabbed) {
-        alert("IMplement intl_hoverAt for tabbed");
+        alert("IMplement intl_dockPathAt for tabbed");
       }
       return true;
     } else {
@@ -287,13 +278,14 @@ class Dockspace { // A node in a dock tree.
 }
 
 class Frame {
-  constructor(x = 10, y = 10, w = 50, h = 50) {
+  constructor(x = 10, y = 10, w = 50, h = 50, title = "Untitled") {
     this.x = x;
     this.y = y;
     this.width = w;
     this.height = h;
     this.dock = null;
     this.active = false;
+    this.title = title;
   }
   render(gfx) {
     gfx.fillStyle = this.active ? "#aaaaaa" : "#555555";

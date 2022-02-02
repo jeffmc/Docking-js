@@ -15,20 +15,26 @@ let activeRootDock = null;
 let activeLeafDock = null;
 
 // Add example docks
-let frs = [ new Frame(10, 10, 160, 160), new Frame(70, 25, 180, 120), new Frame(100, 150, 200, 160) ];
+let frs = [ 
+  new Frame(10, 10, 160, 160, "Aye"), 
+  new Frame(70, 25, 180, 120, "Bee"), 
+  new Frame(100, 150, 200, 160, "Cow") 
+];
 for (fr of frs) { // example solos
   rootDock.addChild(Dockspace.solo(fr));
 }
 rootDock.addChild( // example split
   Dockspace.split(
-    new Frame(120, 220, 240, 120),
-    new Frame(160, 350, 280, 140)
+    new Frame(120, 220, 240, 120, "Left"),
+    new Frame(160, 350, 280, 140, "Right")
   )
 );
 
 // Mouse Data
 let mx = 0;
 let my = 0;
+
+let frameCount = 0;
 
 // multi-frame
 let mousePressed = false;
@@ -54,11 +60,19 @@ function draw() {
   handleEvents();
 
   // Determine hovered
-  let hoverPath = rootDock.hoverAt(mx,my);
+  let hoverPath = rootDock.dockPathAt(mx,my);
+
+  rootDock.deactivate();
+  rootDock.activateAt(mx,my);
 
   // Draw background
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, 700, 700); // TODO: Find canvas values systematically.
+
+  // Draw slow-pulsing rect
+  let v = frameCount % 255;
+  ctx.fillStyle = `rgb(${v},${v},${v})`;
+  ctx.fillRect(0,0,20,20);
 
   // Draw rootDocks (except for active)
   // for (let i = rootDocks.length - 1; i > 0; i--) {
@@ -80,32 +94,18 @@ function draw() {
   ctx.strokeStyle = "#FFF";
   ctx.strokeRect(mx - 2, my - 2, 4, 4);
 
+  frameCount++;
   stats.end();
   requestAnimationFrame(draw);
 }
 
 // Docking functions
-function findRootDockAt(xx, yy) {
-  for (let i = 0; i < rootDocks.length; i++) {
-    if (rootDocks[i].contains(xx, yy)) return rootDocks[i];
-  }
-  return null;
-}
-
-function findLeafDockAt(xx, yy) {
-  for (let i = 0; i < rootDocks.length; i++) {
-    if (rootDocks[i].contains(xx, yy))
-      return rootDocks[i].findLeafDockAt(xx, yy);
-  }
-  return null;
-}
-
 function activateDockAt(xx, yy) {
   // find root dock
-  let rDock = findRootDockAt(xx, yy);
-  let lDock = findLeafDockAt(xx, yy);
-  activateDock(rDock, lDock);
-  return rDock; // Found or null
+  let path = rootDock.dockPathAt(xx,yy);
+  console.log(path);
+  // activateDock(rDock, lDock);
+  return path[path.legnth-1]; // Found or null
 }
 
 function activateDock(newDock) {
