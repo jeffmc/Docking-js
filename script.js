@@ -62,9 +62,6 @@ function draw() {
   // Determine hovered
   let hoverPath = rootDock.dockPathAt(mx,my);
 
-  rootDock.deactivate();
-  rootDock.activateAt(mx,my);
-
   // Draw background
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, 700, 700); // TODO: Find canvas values systematically.
@@ -74,10 +71,7 @@ function draw() {
   ctx.fillStyle = `rgb(${v},${v},${v})`;
   ctx.fillRect(0,0,20,20);
 
-  // Draw rootDocks (except for active)
-  // for (let i = rootDocks.length - 1; i > 0; i--) {
-  //   rootDocks[i].render(ctx);
-  // }
+  // Draw rootDock (except for active)
   rootDock.render(ctx);
 
   // Draw active dock
@@ -85,12 +79,10 @@ function draw() {
 
   // Draw droppoints (except for active)
   if (dockHandler) {
-    // for (let i = rootDocks.length - 1; i > 0; i--) {
-    rootDock.renderDroppoints(ctx);
-    // }
+    rootDock.renderDroppoints(ctx, dockHandler);
   }
 
-  // Paint mouse location
+  // Paint mouse location as rect
   ctx.strokeStyle = "#FFF";
   ctx.strokeRect(mx - 2, my - 2, 4, 4);
 
@@ -99,39 +91,12 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-// Docking functions
-function activateDockAt(xx, yy) {
-  // find root dock
-  let path = rootDock.dockPathAt(xx,yy);
-  console.log(path);
-  // activateDock(rDock, lDock);
-  return path[path.legnth-1]; // Found or null
-}
-
-function activateDock(newDock) {
-  for (dock of rootDocks) {
-    // TODO: only deactivate last dock.
-    dock.deactivate();
-  }
-  let idx = rootDocks.indexOf(newDock);
-  if (idx < 0) {
-    console.log("ERROR: COULDN'T FIND DOCK IN activateDock()");
-  } else {
-    rootDocks.splice(idx, 1);
-    newDock.active = true;
-    activeRootDock = newDock;
-    rootDocks.unshift(newDock);
-  }
-}
 
 // Event handling
 function handleEvents() {
   if (mouseDown) {
-    let dock = activateDockAt(mx, my);
-    if (dock) {
-      dockHandler = new DockHandler(mx, my, dock, rootDocks);
-      dockHandler.handleMouseDown(mx, my);
-    }
+    dockHandler = DockHandler.makeHandler(mx, my, rootDock);
+    if (dockHandler) dockHandler.handleMouseDown(mx, my);
 
     mouseDown = false;
   }

@@ -1,10 +1,17 @@
 class DockHandler {
-    constructor(mx, my, dock, docks) {
-        this.rx = mx - dock.x; // relative x,y
-        this.ry = my - dock.y;
-        this.dock = dock; // dock this is acting on.
-        this.docks = docks; // all docks
-        this.mover = false;
+    static makeHandler(mx,my,rootDock) {
+        let dock = rootDock.activateDockAt(mx,my);
+        if (dock.isHalf) dock = dock.parent;
+        return new DockHandler(mx,my,dock);
+    }
+    constructor(mx, my, subject, rootDock = null) {
+        this.rx = mx - subject.x; // relative x,y
+        this.ry = my - subject.y;
+        this.subject = subject; // dock this is acting on.
+        this.rootDock = rootDock; // all docks
+        
+        // Behaviour types
+        this.mover = false; 
     }
 
     handleMouseDown(mx, my) {
@@ -32,6 +39,6 @@ class DockHandler {
     }
 
     setDockPos(mx,my) {
-        this.dock.setPos(mx-this.rx,my-this.ry);
+        this.subject.setPos(mx-this.rx,my-this.ry);
     }
 }

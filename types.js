@@ -13,6 +13,8 @@ class Dockspace { // A node in a dock tree.
     this.height = h + DOCK_PADDING * 2;
     
     this.parent = null; // null if root dock.
+    this.isRoot = false;
+    this.immovable = false;
 
     this.active = false;
     this.hovered = false;
@@ -34,6 +36,7 @@ class Dockspace { // A node in a dock tree.
     obj.doRenderElements = false;
     obj.doDrawTitle = false;
     obj.isRoot = true;
+    obj.immovable = true;
     obj.children = [];
 
     obj.setSize(w,h);
@@ -139,39 +142,76 @@ class Dockspace { // A node in a dock tree.
 
     if (this.doDrawTitle) {
       gfx.fillStyle = "#fff";
-      gfx.fillText(this.solo?this.frame.title:"EX_TITLE",this.x,this.y+DOCK_TITLE_HEIGHT);
+      gfx.fillText(this.solo?this.frame.title:"EX_TITLE",this.x+DOCK_PADDING,this.y+DOCK_TITLE_HEIGHT);
     }
 
   }
-  renderDroppoints(gfx) { // Add a droppoint class
-    if (this.solo) this.frame.renderDroppoint(gfx);
+  renderDroppoints(gfx, dockHandler) { // Add a droppoint class
+    if (dockHandler.subject == this) return; 
+    if (this.isRoot) {
+      for (const child of this.children) {
+        child.renderDroppoints(gfx, dockHandler);
+      }
+    }
+    if (this.solo) this.frame.renderDroppoints(gfx, dockHandler);
     if (this.split) {
-      this.a.renderDroppoints(gfx);
-      this.b.renderDroppoints(gfx);
+      this.a.renderDroppoints(gfx, dockHandler);
+      this.b.renderDroppoints(gfx, dockHandler);
     }
     if (this.tabbed) {
       // TODO: Do this better, don't render all frames droppoints.
       for (fr in this.frames) {
-        fr.renderDroppoint(gfx);
+        fr.renderDroppoints(gfx, dockHandler);
       }
     }
   }
-  activateAt(xx,yy) {
-    if (this.contains(xx,yy)) {
-      this.intl_activate();
-      if (this.split) {
-        if (this.a.contains(xx,yy)) {
-          this.a.activateAt(xx,yy);
-        } else if (this.b.contains(xx,yy)) {
-          this.b.activateAt(xx,yy);
+  dockIsChild(dock) {
+    if (this.isRoot) {
+      for (const child of this.children)
+        if (child == dock) return true;
+      return false;
+    }
+    if (this.solo) return false;
+    if (this.split) return this.a == dock || this.b == dock;
+    if (this.tabbed) return false;
+  }
+  static activateDockPath(path) {
+    path[0].deactivate();
+    path[path.length-1].activateLeaf();
+  }
+  activateLeaf() { // call on the leaf to activate
+    if (this.parent != null) {
+      this.parent.intl_activateParent(this);
+    } else {
+      if (!this.isRoot) alert("non-root null parent dock found in tree!");
+    }
+  }
+  intl_activateParent(cdock) { // call on the parent dock and pass in leaf
+    if (this.isRoot) {
+      for (let i=0;i<this.children.length;i++) {
+        let child = this.children[i];
+        if (child == cdock) {
+          cdock.intl_activate();
+          this.children.unshift(this.children.splice(i,1)[0]); // don't break loop because still need to deactivate all other docks
+        } else {
+          child.deactivate();
         }
       }
-      if (this.tabbed) {
-        alert("Add this funcitonality for tabbed dock activation!"); // TODO: Activation code for tabbed docks.
-      }
-    } else {
-      this.deactivate();
     }
+    if (this.split) {
+      if (this.a == cdock) {
+        cdock.intl_activate();
+        this.b.deactivate();
+      } else if (this.b == cdock) {
+        cdock.intl_activate();
+        this.a.deactivate();
+      }
+    }
+    if (this.tabbed) {
+      alert("Activating frames in a tabbed dock?"); // TODO: Change this.
+    }
+    if (this.solo) alert("Cannot activate child dock in a solo dock");
+    this.activateLeaf();
   }
   intl_activate() {
     this.active = true;
@@ -179,6 +219,11 @@ class Dockspace { // A node in a dock tree.
   }
   deactivate() {
     this.active = false;
+    if (this.isRoot) {
+      for (const child of this.children) {
+        child.deactivate();
+      }
+    }
     if (this.solo) this.frame.deactivate();
     if (this.split) {
       this.a.deactivate();
@@ -192,12 +237,7 @@ class Dockspace { // A node in a dock tree.
   }
 
   contains(xx, yy) {
-    return (
-      xx >= this.x &&
-      yy >= this.y &&
-      xx <= this.x + this.width &&
-      yy <= this.y + this.height
-    );
+    return rectContains(this.x,this.y,this.width,this.height,xx,yy);
   }
   setPos(x, y) {
     this.x = x;
@@ -248,6 +288,8 @@ class Dockspace { // A node in a dock tree.
   addChild(subdock) {
     if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
     if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
+    if (subdock.parent != null) alert("SUBDOCK ALREADY HAS PARENT!");
+    subdock.parent = this;
     this.children.push(subdock);
   }
   dockPathAt(xx,yy) {
@@ -275,6 +317,12 @@ class Dockspace { // A node in a dock tree.
       return false;
     }
   }
+  activateDockAt(xx, yy) {
+    // find root dock
+    let path = this.dockPathAt(xx,yy);
+    Dockspace.activateDockPath(path);
+    return path[path.length - 1]; // Found or null
+  }
 }
 
 class Frame {
@@ -294,48 +342,46 @@ class Frame {
     gfx.strokeStyle = this.active ? "#dddddd" : "#888888";
     gfx.strokeRect(this.x, this.y, this.width, this.height);
   }
-  renderDroppoint(gfx) {
+  renderDroppoints(gfx) {
     let dx = this.x + this.width / 2,
       dy = this.y + this.height / 2; // drop x, drop y
-    gfx.fillStyle = "#aa2222";
-    gfx.fillRect(
+    this.renderDroppoint(gfx,
       dx - DROPPOINT_RADIUS,
       dy - DROPPOINT_RADIUS,
       DROPPOINT_RADIUS * 2,
       DROPPOINT_RADIUS * 2
     ); // center
-    gfx.fillRect(
+    this.renderDroppoint(gfx,
       dx - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
       dy - DROPPOINT_RADIUS,
       DROPPOINT_THICKNESS,
       DROPPOINT_RADIUS * 2
     ); // left
-    gfx.fillRect(
+    this.renderDroppoint(gfx,
       dx + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
       dy - DROPPOINT_RADIUS,
       DROPPOINT_THICKNESS,
       DROPPOINT_RADIUS * 2
     ); // right
-    gfx.fillRect(
+    this.renderDroppoint(gfx,
       dx - DROPPOINT_RADIUS,
       dy - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
       DROPPOINT_RADIUS * 2,
       DROPPOINT_THICKNESS
     ); // top
-    gfx.fillRect(
+    this.renderDroppoint(gfx,
       dx - DROPPOINT_RADIUS,
       dy + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
       DROPPOINT_RADIUS * 2,
       DROPPOINT_THICKNESS
     ); // bottom
   }
+  renderDroppoint(gfx,x,y,w,h) {
+    gfx.fillStyle = rectContains(x,y,w,h,mx,my)?"#22aa22":"#aa2222";
+    gfx.fillRect(x,y,w,h);
+  }
   contains(xx, yy) {
-    return (
-      xx >= this.x &&
-      yy >= this.y &&
-      xx <= this.x + this.width &&
-      yy <= this.y + this.height
-    );
+    return rectContains(this.x,this.y,this.width,this.height,xx,yy);
   }
   setPos(xx, yy) {
     this.x = xx;
@@ -351,4 +397,15 @@ class Frame {
   deactivate() {
     this.active = false;
   }
+}
+
+// Implement DropCluster type, containing center, l,r,u,p droppoints for Docks, and z-indexed rendering array.
+
+function rectContains(x,y,w,h,xx,yy) {
+  return (
+    xx >= x &&
+    yy >= y &&
+    xx <= x + w &&
+    yy <= y + h
+  );
 }
