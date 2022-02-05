@@ -16,6 +16,9 @@ class Dockspace { // A node in a dock tree.
     this.isRoot = false;
     this.immovable = false;
 
+    this.hasDroppoints = false;
+    this.droppoints = []; // 0 center, 1 left, 2 top, 3 right, 4 bottom.
+
     this.active = false;
     this.hovered = false;
 
@@ -41,6 +44,8 @@ class Dockspace { // A node in a dock tree.
 
     obj.setSize(w,h);
     obj.setPos(x,y);
+
+    obj.makeDroppoints();
     return obj;
   }
 
@@ -56,6 +61,8 @@ class Dockspace { // A node in a dock tree.
 
     obj.setInnerSize(fr.width, fr.height);
     obj.setPos(fr.x, fr.y);
+
+    obj.makeDroppoints();
     return obj;
   }
 
@@ -142,28 +149,75 @@ class Dockspace { // A node in a dock tree.
 
     if (this.doDrawTitle) {
       gfx.fillStyle = "#fff";
-      gfx.fillText(this.solo?this.frame.title:"EX_TITLE",this.x+DOCK_PADDING,this.y+DOCK_TITLE_HEIGHT);
+      gfx.fillText(this.solo?this.frame.title:"EX_TITLE",this.x+DOCK_PADDING,this.y+DOCK_TITLE_HEIGHT-DOCK_PADDING); // TODO: Fix y-positioning with font
     }
 
   }
-  renderDroppoints(gfx, dockHandler) { // Add a droppoint class
-    if (dockHandler.subject == this) return; 
+  makeDroppoints() {
+    this.hasDroppoints = true;
+    this.droppoints.push(new Droppoint(this,"CENTER"));
+    this.droppoints.push(new Droppoint(this,"LEFT"));
+    this.droppoints.push(new Droppoint(this,"RIGHT"));
+    this.droppoints.push(new Droppoint(this,"TOP"));
+    this.droppoints.push(new Droppoint(this,"BOTTOM"));
+    this.alignDroppoints();
+  }
+  alignDroppoints() {
+    let dx = this.x + this.width / 2, dy = this.y + this.height / 2; // drop x, drop y
+    // Center
+    this.droppoints[0].setPosSize(
+      dx - DROPPOINT_RADIUS,
+      dy - DROPPOINT_RADIUS,
+      DROPPOINT_RADIUS * 2,
+      DROPPOINT_RADIUS * 2,
+    ); 
+    // Left
+    this.droppoints[1].setPosSize(
+      dx - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
+      dy - DROPPOINT_RADIUS,
+      DROPPOINT_THICKNESS,
+      DROPPOINT_RADIUS * 2, 
+    ); 
+    // Right
+    this.droppoints[2].setPosSize(
+      dx + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
+      dy - DROPPOINT_RADIUS,
+      DROPPOINT_THICKNESS,
+      DROPPOINT_RADIUS * 2,
+    ); 
+    // Top
+    this.droppoints[3].setPosSize(
+      dx - DROPPOINT_RADIUS,
+      dy - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
+      DROPPOINT_RADIUS * 2,
+      DROPPOINT_THICKNESS,
+    );
+    // Bottom
+    this.droppoints[4].setPosSize(
+      dx - DROPPOINT_RADIUS,
+      dy + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
+      DROPPOINT_RADIUS * 2,
+      DROPPOINT_THICKNESS,
+    );
+  }
+
+  getAllDroppoints(col = []) { // Add a droppoint class
     if (this.isRoot) {
       for (const child of this.children) {
-        child.renderDroppoints(gfx, dockHandler);
+        col.unshift(...(child.getAllDroppoints()));
       }
     }
-    if (this.solo) this.frame.renderDroppoints(gfx, dockHandler);
     if (this.split) {
-      this.a.renderDroppoints(gfx, dockHandler);
-      this.b.renderDroppoints(gfx, dockHandler);
+      col.unshift(...(this.a.getAllDroppoints()));
+      col.unshift(...(this.b.getAllDroppoints()));
     }
     if (this.tabbed) {
-      // TODO: Do this better, don't render all frames droppoints.
-      for (fr in this.frames) {
-        fr.renderDroppoints(gfx, dockHandler);
-      }
+      alert("RENDER DROPPOINTS FOR TABBED!");
     }
+    if (this.hasDroppoints) {
+      col.unshift(...this.droppoints);
+    }
+    return col;
   }
   dockIsChild(dock) {
     if (this.isRoot) {
@@ -235,7 +289,6 @@ class Dockspace { // A node in a dock tree.
       }
     }
   }
-
   contains(xx, yy) {
     return rectContains(this.x,this.y,this.width,this.height,xx,yy);
   }
@@ -247,10 +300,12 @@ class Dockspace { // A node in a dock tree.
       this.updateSplitWindows();
     }
     if (this.tabbed) alert("Implement Dockspace.setPos() for tabbed");
+    if (this.hasDroppoints) this.alignDroppoints();
   }
   setSize(ww,hh) {
     this.width = ww;
     this.height = hh;
+    if (this.hasDroppoints) this.alignDroppoints();
     if (this.solo) {
       this.frame.setSize(ww - DOCK_PADDING * 2, hh - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0));
       return;
@@ -325,6 +380,24 @@ class Dockspace { // A node in a dock tree.
   }
 }
 
+class Droppoint {
+  constructor(parent,direction,x=0,y=0,w=DROPPOINT_RADIUS,h=DROPPOINT_RADIUS) {
+    this.parent = parent;
+    this.direction = direction;
+    this.setPosSize(x,y,w,h);
+  }
+  setPosSize(x,y,w,h) {
+    this.x = x;
+    this.y = y;
+    this.width = w;
+    this.height = h;
+  }
+  render(gfx, dockHandler) {
+    gfx.fillStyle = rectContains(this.x,this.y,this.width,this.height,mx,my) ? "#22aa22" : "#aa2222";
+    gfx.fillRect(this.x,this.y,this.width,this.height);
+  }
+}
+
 class Frame {
   constructor(x = 10, y = 10, w = 50, h = 50, title = "Untitled") {
     this.x = x;
@@ -341,44 +414,6 @@ class Frame {
 
     gfx.strokeStyle = this.active ? "#dddddd" : "#888888";
     gfx.strokeRect(this.x, this.y, this.width, this.height);
-  }
-  renderDroppoints(gfx) {
-    let dx = this.x + this.width / 2,
-      dy = this.y + this.height / 2; // drop x, drop y
-    this.renderDroppoint(gfx,
-      dx - DROPPOINT_RADIUS,
-      dy - DROPPOINT_RADIUS,
-      DROPPOINT_RADIUS * 2,
-      DROPPOINT_RADIUS * 2
-    ); // center
-    this.renderDroppoint(gfx,
-      dx - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
-      dy - DROPPOINT_RADIUS,
-      DROPPOINT_THICKNESS,
-      DROPPOINT_RADIUS * 2
-    ); // left
-    this.renderDroppoint(gfx,
-      dx + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
-      dy - DROPPOINT_RADIUS,
-      DROPPOINT_THICKNESS,
-      DROPPOINT_RADIUS * 2
-    ); // right
-    this.renderDroppoint(gfx,
-      dx - DROPPOINT_RADIUS,
-      dy - DROPPOINT_RADIUS - DROPPOINT_MARGIN - DROPPOINT_THICKNESS,
-      DROPPOINT_RADIUS * 2,
-      DROPPOINT_THICKNESS
-    ); // top
-    this.renderDroppoint(gfx,
-      dx - DROPPOINT_RADIUS,
-      dy + DROPPOINT_RADIUS + DROPPOINT_MARGIN,
-      DROPPOINT_RADIUS * 2,
-      DROPPOINT_THICKNESS
-    ); // bottom
-  }
-  renderDroppoint(gfx,x,y,w,h) {
-    gfx.fillStyle = rectContains(x,y,w,h,mx,my)?"#22aa22":"#aa2222";
-    gfx.fillRect(x,y,w,h);
   }
   contains(xx, yy) {
     return rectContains(this.x,this.y,this.width,this.height,xx,yy);

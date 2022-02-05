@@ -79,7 +79,11 @@ function draw() {
 
   // Draw droppoints (except for active)
   if (dockHandler) {
-    rootDock.renderDroppoints(ctx, dockHandler);
+    let droppoints = rootDock.getAllDroppoints(); // TODO: Obtain and filter droppoints by parent subject at creation of dockHandler
+    for (const dp of droppoints) {
+      if (dockHandler.subject == dp.parent) continue; 
+      dp.render(ctx, dockHandler);
+    }
   }
 
   // Paint mouse location as rect
