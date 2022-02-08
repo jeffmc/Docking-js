@@ -382,9 +382,9 @@ class Dockspace { // A node in a dock tree.
 }
 
 class Droppoint {
-  constructor(parent,direction,x=0,y=0,w=DROPPOINT_RADIUS,h=DROPPOINT_RADIUS) {
+  constructor(parent,angle,x=0,y=0,w=DROPPOINT_RADIUS,h=DROPPOINT_RADIUS) {
     this.parent = parent;
-    this.direction = direction;
+    this.angle = angle;
     this.setPosSize(x,y,w,h);
   }
   setPosSize(x,y,w,h) {
