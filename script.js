@@ -47,14 +47,13 @@ let clicked = false;
 let dragStart = false;
 let dragEnd = false;
 
-let dockHandler = null;
-
-// Init
-// activateDock(rootDocks[0]);
+let dockHandler = null; // Make drag handlers (for later UI components), dockHandler just applies to Dock dragging.
 
 // Loop
 function draw() {
   stats.begin();
+
+  // LOGIC
 
   // Event handling
   handleEvents();
@@ -62,30 +61,20 @@ function draw() {
   // Determine hovered
   let hoverPath = rootDock.dockPathAt(mx,my);
 
-  // Draw background
+  // RENDERING
+
+  // Background fill
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, 700, 700); // TODO: Find canvas values systematically.
 
-  // Draw slow-pulsing rect
-  let v = frameCount % 255;
-  ctx.fillStyle = `rgb(${v},${v},${v})`;
-  ctx.fillRect(0,0,20,20);
-
-  // Draw rootDock (except for active)
+  // Draw dock tree
   rootDock.render(ctx);
 
-  // Draw active dock
-  // rootDocks[0].render(ctx);
+  // Render dropoints atop
+  drawDroppoints(ctx);
 
-  // Draw droppoints (except for active)
-  if (dockHandler) {
-    let droppoints = rootDock.getAllDroppoints(); // TODO: Obtain and filter droppoints by parent subject at creation of dockHandler
-    for (const dp of droppoints) {
-      if (dockHandler.subject == dp.parent) continue; 
-      dp.render(ctx, dockHandler);
-    }
-  }
 
+  // Debug code 
   // Paint mouse location as rect
   ctx.strokeStyle = "#FFF";
   ctx.strokeRect(mx - 2, my - 2, 4, 4);
@@ -93,6 +82,15 @@ function draw() {
   frameCount++;
   stats.end();
   requestAnimationFrame(draw);
+}
+
+// Draw droppoints (except for active)
+function drawDroppoints(gfx) {
+  if (dockHandler) {
+    for (const dp of dockHandler.validDroppoints) {
+      dp.render(gfx, dockHandler);
+    }
+  }
 }
 
 

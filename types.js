@@ -201,6 +201,7 @@ class Dockspace { // A node in a dock tree.
     );
   }
 
+  // Returns an array of Droppoint objects, including Dock called on and all descendants.
   getAllDroppoints(col = []) { // Add a droppoint class
     if (this.isRoot) {
       for (const child of this.children) {
