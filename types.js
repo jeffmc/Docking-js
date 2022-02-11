@@ -12,25 +12,58 @@ class Dockspace { // A node in a dock tree.
     this.width = w + DOCK_PADDING * 2;
     this.height = h + DOCK_PADDING * 2;
     
-    this.parent = null; // null if root dock.
+    this.resetState(true);
+  }
+  resetState(resetParent = false) { // Kills all state and children reference, maintains ancestors and screen position/size, all arrays set to null
+    if (resetParent) {
+      this.parent = null; // reference to parent dockspace, null if window root.
+    }
+    updateParentalRelationship();
+    this.active = false; // UI active
+    this.hovered = false; // mouse hovered
+    this.immovable = false; // movable by handlers
+    this.doRenderElements = false;  // render border, title.
+    this.doDrawTitle = false; // render title
+    this.hasDroppoints = false; // self-explanatory
+    this.droppoints = null; // droppoints for this dockspace
+    this.children = null; // root docks have child docks (floating)
+
+    // Dock modes
     this.isRoot = false;
-    this.immovable = false;
-
-    this.hasDroppoints = false;
-    this.droppoints = []; // 0 center, 1 left, 2 top, 3 right, 4 bottom.
-
-    this.active = false;
-    this.hovered = false;
-
-    this.doRenderElements = true;
-	  this.doDrawTitle = true;
-
     this.solo = false;
-    this.isHalf = false; // child of a split
-
     this.split = false;
-    
     this.tabbed = false;
+
+    // Frames
+    this.frame = null; // on solo docks, they possess a Frame object.
+    this.frames = null; // tabbed docks possess a Frame array.
+  }
+  updateParentalRelationship() {
+    this.floating = false;
+    this.isHalf = false;
+    if (this.parent != null) {
+      if (this.parent.isRoot) {
+        this.floating = true;
+      } else if (this.parent.split) {
+        this.isHalf = true;
+      }
+    }
+  }
+
+  grabTransform() {
+    let tr;
+    tr.x = this.x;
+    tr.y = this.y;
+    tr.width = this.width;
+    tr.height = this.height;
+    return tr;
+  }
+
+  placeTransform(tr) {
+    this.x = tr.x;
+    this.y = tr.y;
+    this.width = tr.width;
+    this.height = tr.height;
   }
 
   // Root dockspace, contains floating docks of any kind.
@@ -50,14 +83,29 @@ class Dockspace { // A node in a dock tree.
   }
 
   // Solo dockspace, contains single frame
-  static solo(fr, ih = false, p = null) {
+  static solo(fr, p = null) {
     if (!fr instanceof Frame) alert("ERROR: fr arg not Frame instance!");
     let obj = new Dockspace(0,0,0,0, p);
-    obj.frame = fr;
     obj.solo = true;
-    
-    obj.isHalf = ih;
+    obj.frame = fr;
     obj.parent = p;
+
+    obj.floating = false;
+    obj.isHalf = false;
+
+    if (obj.parent) {
+      if (obj.parent.isRoot) {
+        obj.floating = true;
+      } else if (obj.parent.split) {
+        obj.isHalf = true;
+      } else if (obj.parent.solo) {
+        alert("NESTED SOLO DOCKS FOR NO REASON!");
+      } else if (obj.parent.tabbed) {
+        alert("CHILD DOCK OF TABBED DOCK!");
+      }
+    } else {
+      obj.isolated = true;
+    }
 
     obj.setInnerSize(fr.width, fr.height);
     obj.setPos(fr.x, fr.y);
@@ -67,35 +115,77 @@ class Dockspace { // A node in a dock tree.
   }
 
   // Split dock, contains two subdocks of any kind. (horizontal or vertical mode)
-  static split(a, b, vert) {
-    if (!a instanceof Frame) alert("ERROR: arg a not Frame instance!");
-    if (!b instanceof Frame) alert("ERROR: arg b not Frame instance!");
+  static split(a, b, vert = false) {
+    if (!a instanceof Dockspace) alert("ERROR: arg a not Frame instance!");
+    if (!b instanceof Dockspace) alert("ERROR: arg b not Frame instance!");
     let obj = new Dockspace(a.x, a.y, a.width, a.height);
-    if (vert) {
-      obj.vertical = true;
-    } else {
-      obj.vertical = false;
-    }
+    obj.vertical = vert;
     obj.split = true;
     obj.doDrawTitle = false;
     obj.doRenderElements = false;
-    obj.a = Dockspace.solo(a, true, obj); // left/top
-    obj.b = Dockspace.solo(b, true, obj); // right/bottom
+    
+    // Convert children from independent to half.
+    a.isHalf = true;
+    b.isHalf = true;
+    a.parent = obj;
+    b.parent = obj;
 
-    obj.splitter = 0; // TODO: Add splitter movement
+    obj.a = a; // left/top
+    obj.b = b; // right/bottom
+
+    obj.splitter = 0;
 
     if (obj.vertical) {
-      alert("Vertical splitting needs to be implemented!");
+      obj.splitter = a.height;
+      obj.setInnerSize(
+        a.width >= b.width ? a.width : b.width,
+        a.height + b.height,
+      );
     } else {
+      obj.splitter = a.width;
       obj.setInnerSize(
         a.width + b.width,
         a.height >= b.height ? a.height : b.height
       );
-      obj.splitter = a.width;
     }
 
     return obj;
   }
+  updateSplitWindows() {
+    let pdg = (this.doRenderElements?DOCK_PADDING * 2:0); // Dock padding size
+    let ttl = (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // DOck title height
+    if (this.vertical) {
+      let xx = this.x + pdg,
+        yy = this.y + pdg + ttl; // inner position
+      let ww = this.width - pdg,
+        hh = this.height - pdg - ttl; // inner dimensions
+
+      let ah = this.splitter;
+      let bh = hh - this.splitter;
+      this.a.setSize(ww,ah);
+      this.b.setSize(ww,bh);
+
+      this.a.setPos(xx,yy);
+      this.b.setPos(xx,yy+ah);
+    } else {
+      let xx = this.x + pdg,
+        yy = this.y + pdg + ttl; // inner position
+      let ww = this.width - pdg,
+        hh = this.height - pdg - ttl; // inner dimensions
+
+      let aw = this.splitter;
+      let bw = ww - this.splitter;
+      this.a.setSize(aw,hh);
+      this.b.setSize(bw,hh);
+
+      this.a.setPos(xx,yy);
+      this.b.setPos(xx+aw,yy);
+    }
+  }
+  setSplitter(s) { // TODO: Add splitter movement AND SplitterDragHandler
+    this.splitter = s;
+    this.updateSplitWindows();
+  } 
 
   // Tabbed dock, contains n>0 subdocks of any kind. TODO: Decide whether tabbed docks can contain tabbed docks.
   static tabbed(...frs) {
@@ -207,6 +297,8 @@ class Dockspace { // A node in a dock tree.
       for (const child of this.children) {
         col.unshift(...(child.getAllDroppoints()));
       }
+      if (this.hasDroppoints) col.push(...this.droppoints);
+      return col;
     }
     if (this.split) {
       col.unshift(...(this.a.getAllDroppoints()));
@@ -220,6 +312,7 @@ class Dockspace { // A node in a dock tree.
     }
     return col;
   }
+  // Returns true if dock is a DIRECT descendent within tree.
   dockIsChild(dock) {
     if (this.isRoot) {
       for (const child of this.children)
@@ -230,18 +323,21 @@ class Dockspace { // A node in a dock tree.
     if (this.split) return this.a == dock || this.b == dock;
     if (this.tabbed) return false;
   }
+  // Deactivate root and activate leaf (subsequently activating path)
   static activateDockPath(path) {
     path[0].deactivate();
     path[path.length-1].activateLeaf();
   }
-  activateLeaf() { // call on the leaf to activate
+  // Call on the leaf to activate, all ancestors until and including root.
+  activateLeaf() { 
     if (this.parent != null) {
       this.parent.intl_activateParent(this);
     } else {
       if (!this.isRoot) alert("non-root null parent dock found in tree!");
     }
   }
-  intl_activateParent(cdock) { // call on the parent dock and pass in leaf
+  // Internal activation method, called from activateLeaf(), and calls activateLeaf on itself
+  intl_activateParent(cdock) {
     if (this.isRoot) {
       for (let i=0;i<this.children.length;i++) {
         let child = this.children[i];
@@ -268,10 +364,12 @@ class Dockspace { // A node in a dock tree.
     if (this.solo) alert("Cannot activate child dock in a solo dock");
     this.activateLeaf();
   }
+  // Internal activation, calls respective behaviour after activation.
   intl_activate() {
     this.active = true;
     if (this.solo) this.frame.intl_activate();
   }
+  // Deactivates this dock and ALL descendents.
   deactivate() {
     this.active = false;
     if (this.isRoot) {
@@ -321,32 +419,28 @@ class Dockspace { // A node in a dock tree.
     }
   }
   setInnerSize(ww, hh) {
-    this.setSize(ww + DOCK_PADDING * 2,
-      hh + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0) + DOCK_PADDING * 2);
-  }
-  updateSplitWindows() {
-    if (this.vert) {
-      alert("Vertical split Dockspace.setPos() needs to be implemented!");
-    } else {
-      let xx = this.x + DOCK_PADDING,
-        yy = this.y + DOCK_PADDING + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // inner position
-      let ww = this.width - DOCK_PADDING * 2,
-        hh = this.height - DOCK_PADDING * 2 - (this.doDrawTitle?DOCK_TITLE_HEIGHT:0); // inner dimensions
-
-      let hw = ww / 2; // half width
-      this.a.setSize(hw,hh);
-      this.b.setSize(hw,hh);
-
-      this.a.setPos(xx,yy);
-      this.b.setPos(xx+hw,yy);
-    }
+    let pdg = (this.doRenderElements?DOCK_PADDING * 2:0);
+    this.setSize(ww + pdg, hh + (this.doDrawTitle?DOCK_TITLE_HEIGHT:0) + pdg);
   }
   addChild(subdock) {
     if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
     if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
-    if (subdock.parent != null) alert("SUBDOCK ALREADY HAS PARENT!");
+    if (subdock.parent != null && subdock.parent != this) alert("SUBDOCK ALREADY HAS PARENT!");
     subdock.parent = this;
     this.children.push(subdock);
+  }
+  addSolo(frame) {
+    this.addChild(Dockspace.solo(frame,this));
+  }
+  addSplit(dockA,dockB,mode = false) {
+    this.addChild(Dockspace.split(dockA,dockB,mode))
+  }
+  removeChild(subdock) {
+    // if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
+    // if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
+    // if (subdock.parent != null && subdock.parent != this) alert("SUBDOCK ALREADY HAS PARENT!");
+    // subdock.parent = this;
+    // this.children.push(subdock);
   }
   dockPathAt(xx,yy) {
     let path = [];
@@ -379,12 +473,16 @@ class Dockspace { // A node in a dock tree.
     Dockspace.activateDockPath(path);
     return path[path.length - 1]; // Found or null
   }
+  dropDockHere(payload) {
+    payload.parent.removeChild();
+  }
 }
 
 class Droppoint {
   constructor(parent,angle,x=0,y=0,w=DROPPOINT_RADIUS,h=DROPPOINT_RADIUS) {
     this.parent = parent;
     this.angle = angle;
+    this.hovered = false;
     this.setPosSize(x,y,w,h);
   }
   setPosSize(x,y,w,h) {
@@ -394,8 +492,11 @@ class Droppoint {
     this.height = h;
   }
   render(gfx, dockHandler) {
-    gfx.fillStyle = rectContains(this.x,this.y,this.width,this.height,mx,my) ? "#22aa22" : "#aa2222";
+    gfx.fillStyle = this.hovered ? "#22aa22" : "#aa2222";
     gfx.fillRect(this.x,this.y,this.width,this.height);
+  }
+  contains(xx,yy) {
+    return rectContains(this.x,this.y,this.width,this.height,xx,yy);
   }
 }
 
