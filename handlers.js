@@ -46,7 +46,7 @@ class DockHandler {
     if (this.mover) this.setDockPos(mx, my);
     this.mover = false;
     if (this.hoveredDroppoint != null) {
-      this.hoveredDroppoint.parent.activateLeaf();
+      this.hoveredDroppoint.parent.dropDockHere(this.subject);
     }
   }
   render(gfx) {

@@ -18,12 +18,12 @@ class Dockspace { // A node in a dock tree.
     if (resetParent) {
       this.parent = null; // reference to parent dockspace, null if window root.
     }
-    updateParentalRelationship();
+    this.updateParentalRelationship();
     this.active = false; // UI active
     this.hovered = false; // mouse hovered
     this.immovable = false; // movable by handlers
-    this.doRenderElements = false;  // render border, title.
-    this.doDrawTitle = false; // render title
+    this.doRenderElements = true;  // render border, title.
+    this.doDrawTitle = true; // render title
     this.hasDroppoints = false; // self-explanatory
     this.droppoints = null; // droppoints for this dockspace
     this.children = null; // root docks have child docks (floating)
@@ -131,7 +131,11 @@ class Dockspace { // A node in a dock tree.
     b.parent = obj;
 
     obj.a = a; // left/top
+    a.isAHalf = true;
+    a.isBHalf = false;
     obj.b = b; // right/bottom
+    b.isAHalf = false;
+    b.isBHalf = true;
 
     obj.splitter = 0;
 
@@ -245,6 +249,7 @@ class Dockspace { // A node in a dock tree.
   }
   makeDroppoints() {
     this.hasDroppoints = true;
+    this.droppoints = [];
     this.droppoints.push(new Droppoint(this,"CENTER"));
     this.droppoints.push(new Droppoint(this,"LEFT"));
     this.droppoints.push(new Droppoint(this,"RIGHT"));
@@ -435,12 +440,14 @@ class Dockspace { // A node in a dock tree.
   addSplit(dockA,dockB,mode = false) {
     this.addChild(Dockspace.split(dockA,dockB,mode))
   }
-  removeChild(subdock) {
-    // if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
-    // if (!this.isRoot) alert("TRIED TO use add() ON NON-ROOT DOCKSPACE!");
-    // if (subdock.parent != null && subdock.parent != this) alert("SUBDOCK ALREADY HAS PARENT!");
-    // subdock.parent = this;
-    // this.children.push(subdock);
+  removeFloater(subdock) { // used on root dockspace, removes a floating child.
+    if (!subdock instanceof Dockspace) alert("SUBDOCK NOT AN INSTANCE OF DOCKSPACE!");
+    if (!this.isRoot) alert("TRIED TO use removeFloater() ON NON-ROOT DOCKSPACE!");
+    if (subdock.parent != this) alert("SUBDOCK ISN'T A CHILD OF THIS DOCKSPACE!");
+    let idx = this.children.indexOf(subdock);
+    if (idx < 0) alert("SUBDOCK NOT FOUND IN CHILDREN ARRAY!");
+    subdock.parent = null;
+    this.children.splice(idx,1); // delete item at idx. 
   }
   dockPathAt(xx,yy) {
     let path = [];
@@ -474,7 +481,23 @@ class Dockspace { // A node in a dock tree.
     return path[path.length - 1]; // Found or null
   }
   dropDockHere(payload) {
-    payload.parent.removeChild();
+    payload.parent.removeFloater(payload);
+    let arg = this.isAHalf ? "A" : this.isBHalf ? "B" : null;
+    this.parent.impl_insertDock(Dockspace.split(this,payload,false), arg);
+  }
+  impl_insertDock(payload, arg) {
+    if (this.isRoot) {
+      this.addChild(payload);
+    }
+    if (this.split) {
+      if (arg == "A") {
+        this.a = payload;
+      } else if (arg == "B") {
+        this.b = payload;
+      } else {
+        alert("ARG NOT A/B!");
+      }
+    }
   }
 }
 
